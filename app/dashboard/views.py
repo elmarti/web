@@ -82,6 +82,13 @@ def record_user_action(profile_handle, event_name, instance):
         # TODO: sync_profile?
         logging.error(f"error in record_action: {e} - {event_name} - {instance}")
 
+def get_interest_modal():
+    context = {
+        'active': 'get',
+        'title': 'Get Started',
+    }
+    return TemplateResponse(request, 'add_interest.html', context)
+
 @require_POST
 @csrf_exempt
 def new_interest(request, bounty_id):

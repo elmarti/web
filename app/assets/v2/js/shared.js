@@ -168,11 +168,11 @@ var showLoading = function() {
 };
 
 /** Add the current profile to the interested profiles list. */
-var add_interest = function(bounty_pk) {
+var add_interest = function(bounty_pk, question) {
   if (document.interested) {
     return;
   }
-  mutate_interest(bounty_pk, 'new');
+  mutate_interest(bounty_pk, 'new', question);
 };
 
 /** Remove the current profile from the interested profiles list. */
@@ -184,10 +184,13 @@ var remove_interest = function(bounty_pk) {
 };
 
 /** Helper function -- mutates interests in either direction. */
-var mutate_interest = function(bounty_pk, direction) {
+var mutate_interest = function(bounty_pk, direction, question) {
+  question = question || null;
   var request_url = '/actions/bounty/' + bounty_pk + '/interest/' + direction + '/';
 
-  $.post(request_url, function(result) {
+  $.post(request_url, {
+    question: question
+  }).then(function(result) {
     result = sanitizeAPIResults(result);
     if (result.success) {
       pull_interest_list(bounty_pk);
