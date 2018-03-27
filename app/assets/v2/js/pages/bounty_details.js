@@ -269,27 +269,28 @@ var attach_work_actions = function() {
     e.preventDefault();
     if ($(this).attr('href') == '/interested') {
       show_interest_modal.call(this);
-    } else {
-      if(confirm("Are you sure you want to remove your interest")){
-        $(this).attr('href', '/interested');
-        $(this).find('span').text('Start Work');
-        remove_interest(document.result['pk']);
-      }
+    } else if (confirm('Are you sure you want to remove your interest')) {
+      $(this).attr('href', '/interested');
+      $(this).find('span').text('Start Work');
+      remove_interest(document.result['pk']);
     }
+    
   });
 };
 
 var show_interest_modal = function() {
   $.get('interest_modal', function(newHTML) {
-        var modal = $(newHTML).appendTo('body').modal();
-        modal.on('submit', function(event){
-          event.preventDefault();
-          var question = event.target[1].value; 
-          $(this).attr('href', '/uninterested');
-          $(this).find('span').text('Stop Work');
-          add_interest(document.result['pk']);
-        }.bind(this));
-    });
+    var modal = $(newHTML).appendTo('body').modal();
+    
+    modal.on('submit', function(event) {
+      event.preventDefault();
+      var question = event.target[1].value;
+      
+      $(this).attr('href', '/uninterested');
+      $(this).find('span').text('Stop Work');
+      add_interest(document.result['pk']);
+    }.bind(this));
+  });
 };
 
 
