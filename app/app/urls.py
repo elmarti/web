@@ -180,7 +180,7 @@ urlpatterns = [
     # Github Integration
     path('_github/', include('github.urls', namespace='github')),
     # Interests
-    path('get/interest/modal', dashboard.views.get_interest_modal, name='get_interest_modal'),
+    path('interest/modal', dashboard.views.get_interest_modal, name='get_interest_modal'),
     path('actions/bounty/<int:bounty_id>/interest/new/', dashboard.views.new_interest, name='express-interest'),
     path('actions/bounty/<int:bounty_id>/interest/remove/', dashboard.views.remove_interest, name='remove-interest'),
     path('actions/bounty/<int:bounty_id>/interest/', dashboard.views.interested_profiles, name='interested-profiles'),

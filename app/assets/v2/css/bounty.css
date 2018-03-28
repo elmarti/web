@@ -124,3 +124,38 @@
     margin-left: 6%;
   }
 }
+
+
+.interest-modal-title {
+  text-transform:none;
+  font-weight:bold;
+  letter-spacing: 0.1rem;
+}
+
+.add-interest-modal {
+  height:auto;
+  width:40em;
+  border-radius:0%;
+}
+.add-interest-modal__form {
+  padding:1em;
+  width:100%;
+}
+.add-interest-modal__form--item {
+  padding-top:1em;
+}
+.add-interest-modal__form--textarea {
+  height:8em;
+}
+.add-interest-options {
+  display:flex;
+  flex-direction: row;
+  justify-content: flex-start;
+}
+
+.add-interest-options > .option {
+  width:20%;
+}
+.btn-interested {
+  border-radius:0.2em;
+}

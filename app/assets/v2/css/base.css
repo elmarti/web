@@ -241,6 +241,9 @@ p a {
 .modal a.close-modal {
     display: none !important;
 }
+.modal-close {
+    float:right;
+}
 
 .iama{
     background: #0d023b;
