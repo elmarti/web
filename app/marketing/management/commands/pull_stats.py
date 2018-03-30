@@ -218,12 +218,13 @@ def twitter_followers():
         val=(user.followers_count),
         )
 
-    user = api.GetUser(screen_name='owocki')
+    for username in ['owocki', 'gitcoinfeed']:
+        user = api.GetUser(screen_name=username)
 
-    Stat.objects.create(
-        key='twitter_followers_owocki',
-        val=(user.followers_count),
-        )
+        Stat.objects.create(
+            key='twitter_followers_{}'.format(username),
+            val=(user.followers_count),
+            )
 
 
 def bounties():
@@ -282,7 +283,7 @@ def avg_time_bounty_turnaround():
     from dashboard.models import Bounty
 
     for days in [7, 30, 90, 360]:
-        all_bounties = Bounty.objects.filter(current_bounty=True, idx_status='submitted', web3_created__gt=(timezone.now() - timezone.timedelta(days=days)))
+        all_bounties = Bounty.objects.filter(current_bounty=True, idx_status='done', web3_created__gt=(timezone.now() - timezone.timedelta(days=days)))
         if not all_bounties.count():
             continue
 

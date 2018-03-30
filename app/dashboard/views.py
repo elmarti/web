@@ -39,10 +39,14 @@ from dashboard.models import (
 )
 from dashboard.notifications import (
     maybe_market_tip_to_email, maybe_market_tip_to_github, maybe_market_tip_to_slack, maybe_market_to_slack,
+    maybe_market_to_twitter,
 )
 from dashboard.utils import get_bounty, get_bounty_id, has_tx_mined, web3_process_bounty
 from gas.utils import conf_time_spread, eth_usd_conv_rate, recommend_min_gas_price_to_confirm_in_time
-from github.utils import get_auth_url, get_github_emails, get_github_primary_email, is_github_token_valid
+from github.utils import (
+    get_auth_url, get_github_emails, get_github_primary_email, get_github_user_data, is_github_token_valid,
+)
+from marketing.mails import bounty_uninterested
 from marketing.models import Keyword
 from ratelimit.decorators import ratelimit
 from retail.helpers import get_ip
@@ -89,6 +93,15 @@ def get_interest_modal(request):
     }
     return TemplateResponse(request, 'addinterest.html', context)
 
+def helper_handle_access_token(request, access_token):
+    # https://gist.github.com/owocki/614a18fbfec7a5ed87c97d37de70b110
+    # interest API via token
+    github_user_data = get_github_user_data(access_token)
+    request.session['handle'] = github_user_data['login']
+    profile = Profile.objects.filter(handle__iexact=request.session['handle']).first()
+    request.session['profile_id'] = profile.pk
+
+
 @require_POST
 @csrf_exempt
 def new_interest(request, bounty_id):
@@ -103,9 +116,16 @@ def new_interest(request, bounty_id):
         dict: The success key with a boolean value and accompanying error.
 
     """
+<<<<<<< HEAD
     
     has_question = request.POST.get("has_question") == 'true'
     issue_message = request.POST.get("issue_message")
+=======
+    access_token = request.GET.get('token')
+    if access_token and is_github_token_valid(access_token):
+        helper_handle_access_token(request, access_token)
+
+>>>>>>> 6e18c6547e745ffac1b1c485324c397be793a21d
     profile_id = request.session.get('profile_id')
     
     if not profile_id:
@@ -139,6 +159,7 @@ def new_interest(request, bounty_id):
         bounty.interested.add(interest)
         record_user_action(Profile.objects.get(pk=profile_id).handle, 'start_work', interest)
         maybe_market_to_slack(bounty, 'start_work')
+        maybe_market_to_twitter(bounty, 'start_work')
     except Interest.MultipleObjectsReturned:
         bounty_ids = bounty.interested \
             .filter(profile_id=profile_id) \
@@ -168,6 +189,11 @@ def remove_interest(request, bounty_id):
         dict: The success key with a boolean value and accompanying error.
 
     """
+    access_token = request.GET.get('token')
+    if access_token and is_github_token_valid(access_token):
+        helper_handle_access_token(request, access_token)
+
+
     profile_id = request.session.get('profile_id')
     if not profile_id:
         return JsonResponse(
@@ -184,8 +210,9 @@ def remove_interest(request, bounty_id):
         interest = Interest.objects.get(profile_id=profile_id, bounty=bounty)
         record_user_action(Profile.objects.get(pk=profile_id).handle, 'stop_work', interest)
         bounty.interested.remove(interest)
-        maybe_market_to_slack(bounty, 'stop_work')
         interest.delete()
+        maybe_market_to_slack(bounty, 'stop_work')
+        maybe_market_to_twitter(bounty, 'stop_work')
     except Interest.DoesNotExist:
         return JsonResponse({
             'errors': ['You haven\'t expressed interest on this bounty.'],
@@ -204,64 +231,63 @@ def remove_interest(request, bounty_id):
 
     return JsonResponse({'success': True})
 
-
+@require_POST
 @csrf_exempt
-@require_GET
-def interested_profiles(request, bounty_id):
-    """Retrieve memberships who like a Status in a community.
+def uninterested(request, bounty_id, profile_id):
+    """Remove party from given bounty
 
     :request method: GET
 
     Args:
-        bounty_id (int): ID of the Bounty.
-
-    Parameters:
-        page (int): The page number.
-        limit (int): The number of interests per page.
+        bounty_id (int): ID of the Bounty
+        profile_id (int): ID of the interested profile
 
     Returns:
-        django.core.paginator.Paginator: Paged interest results.
-
+        dict: The success key with a boolean value and accompanying error.
     """
-    page = request.GET.get('page', 1)
-    limit = request.GET.get('limit', 10)
-    current_profile = request.session.get('profile_id')
-    profile_interested = False
 
-    # Get all interests for the Bounty.
-    interests = Interest.objects \
-        .filter(bounty__id=bounty_id) \
-        .select_related('profile') \
-        .order_by('created')
+    session_profile_id = request.session.get('profile_id')
+    if not session_profile_id:
+        return JsonResponse(
+            {'error': 'You must be authenticated!'},
+            status=401)
 
-    # Check whether or not the current profile has already expressed interest.
-    if current_profile and interests.filter(profile__pk=current_profile).exists():
-        profile_interested = True
-
-    paginator = Paginator(interests, limit)
     try:
-        interests = paginator.page(page)
-    except PageNotAnInteger:
-        interests = paginator.page(1)
-    except EmptyPage:
-        return JsonResponse([])
+        bounty = Bounty.objects.get(pk=bounty_id)
+    except Bounty.DoesNotExist:
+        return JsonResponse({'errors': ['Bounty doesn\'t exist!']},
+                            status=401)
 
-    interests_data = []
-    for interest in interests:
-        interest_data = ProfileSerializer(interest.profile).data
-        interests_data.append(interest_data)
 
-    if request.is_ajax():
-        return JsonResponse(json.dumps(interests_data), safe=False)
+    if not bounty.is_funder(request.session.get('handle').lower()):
+        return JsonResponse(
+            {'error': 'Only bounty funders are allowed to remove users!'},
+            status=401)
 
-    return JsonResponse({
-        'paginator': {
-            'num_pages': interests.paginator.num_pages,
-        },
-        'data': interests_data,
-        'profile_interested': profile_interested
-    })
+    try:
+        interest = Interest.objects.get(profile_id=profile_id, bounty=bounty)
+        bounty.interested.remove(interest)
+        maybe_market_to_slack(bounty, 'stop_work')
+        interest.delete()
+    except Interest.DoesNotExist:
+        return JsonResponse({
+            'errors': ['Party haven\'t expressed interest on this bounty.'],
+            'success': False},
+            status=401)
+    except Interest.MultipleObjectsReturned:
+        interest_ids = bounty.interested \
+            .filter(
+                profile_id=profile_id,
+                bounty=bounty
+            ).values_list('id', flat=True) \
+            .order_by('-created')
 
+        bounty.interested.remove(*interest_ids)
+        Interest.objects.filter(pk__in=list(interest_ids)).delete()
+
+    profile = Profile.objects.get(id=profile_id)
+    bounty_uninterested(profile.email, bounty, interest)
+    return JsonResponse({'success': True})
 
 @csrf_exempt
 @ratelimit(key='ip', rate='2/m', method=ratelimit.UNSAFE, block=True)
@@ -461,6 +487,34 @@ def fulfill_bounty(request):
 
     return TemplateResponse(request, 'fulfill_bounty.html', params)
 
+def increase_bounty(request):
+    """Increase a bounty (funder)"""
+    issue_url = request.GET.get('source')
+    params = {
+        'issue_url': issue_url,
+        'title': 'Increase Bounty',
+        'active': 'increase_bounty',
+        'recommend_gas_price': recommend_min_gas_price_to_confirm_in_time(confirm_time_minutes_target),
+        'eth_usd_conv_rate': eth_usd_conv_rate(),
+        'conf_time_spread': conf_time_spread(),
+    }
+
+    try:
+        bounties = Bounty.objects.current().filter(github_url=issue_url)
+        if bounties:
+            bounty = bounties.order_by('pk').first()
+            params['standard_bounties_id'] = bounty.standard_bounties_id
+            params['bounty_owner_address'] = bounty.bounty_owner_address
+            params['value_in_token'] = bounty.value_in_token
+            params['token_address'] = bounty.token_address
+    except Bounty.DoesNotExist:
+        pass
+    except Exception as e:
+        print(e)
+        logging.error(e)
+
+    return TemplateResponse(request, 'increase_bounty.html', params)
+
 
 def kill_bounty(request):
     """Kill an expired bounty."""
@@ -592,7 +646,7 @@ def profile(request, handle):
     params['profile'] = profile
     params['stats'] = profile.stats
     params['bounties'] = profile.bounties
-    params['tips'] = Tip.objects.filter(username=handle)
+    params['tips'] = Tip.objects.filter(username=handle, network='mainnet')
 
     return TemplateResponse(request, 'profile_details.html', params)
 
@@ -663,7 +717,16 @@ def sync_web3(request):
                 print('* getting bounty')
                 bounty = get_bounty(bounty_id, network)
                 print('* processing bounty')
-                did_change, _, _ = web3_process_bounty(bounty)
+                did_change = False
+                max_tries_attempted = False
+                counter = 0
+                while not did_change and not max_tries_attempted:
+                    did_change, _, _ = web3_process_bounty(bounty)
+                    if not did_change:
+                        print("RETRYING")
+                        time.sleep(3)
+                        counter += 1
+                        max_tries_attempted = counter > 3
                 result = {
                     'status': '200',
                     'msg': "success",
@@ -813,7 +876,7 @@ def toolbox(request):
           ]
        }, {
           "title": "Tools in Alpha",
-          "description": "These fresh new tools are looking someone to test ride them!",
+          "description": "These fresh new tools are looking for someone to test ride them!",
           "tools": [{
               "name": "Leaderboard",
               "img": static("v2/images/tools/leaderboard.png"),
@@ -861,10 +924,10 @@ def toolbox(request):
              'stat_graph': 'codesponsor',
             },
             {
-              "name": "Offchain Bounties",
+              "name": "Bounties Universe",
               "img": static("v2/images/why-different/projects.jpg"),
-              "description": '''Bounties from around the pre-blockchain internet''',
-              "link": reverse("offchain_index"),
+              "description": '''Bounties from around the internet''',
+              "link": reverse("universe_index"),
               'link_copy': 'Details',
               "active": "false",
               'stat_graph': 'na',  # TODO
