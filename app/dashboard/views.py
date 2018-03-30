@@ -97,13 +97,17 @@ def new_interest(request, bounty_id):
     :request method: POST
 
     Args:
-        post_id (int): ID of the Bounty.
+        bounty_id (int): ID of the Bounty.
 
     Returns:
         dict: The success key with a boolean value and accompanying error.
 
     """
+    
+    has_question = request.POST.get("has_question") == 'true'
+    issue_message = request.POST.get("issue_message")
     profile_id = request.session.get('profile_id')
+    
     if not profile_id:
         return JsonResponse(
             {'error': 'You must be authenticated via github to use this feature!'},
@@ -131,7 +135,7 @@ def new_interest(request, bounty_id):
             'success': False},
             status=401)
     except Interest.DoesNotExist:
-        interest = Interest.objects.create(profile_id=profile_id)
+        interest = Interest.objects.create(profile_id=profile_id, has_question=has_question, issue_message=issue_message)
         bounty.interested.add(interest)
         record_user_action(Profile.objects.get(pk=profile_id).handle, 'start_work', interest)
         maybe_market_to_slack(bounty, 'start_work')

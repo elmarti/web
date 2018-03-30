@@ -288,11 +288,16 @@ var show_interest_modal = function() {
       
       modal.on('submit', function(event) {
         event.preventDefault();
-        var question = event.target[1].value;
+        
+        var has_question = event.target[0].value;
+        var issue_message = event.target[2].value;
         
         $(self).attr('href', '/uninterested');
         $(self).find('span').text('Stop Work');
-        add_interest(document.result['pk']);
+        add_interest(document.result['pk'],{
+          has_question,
+          issue_message
+        });
         $.modal.close();
       });
     });

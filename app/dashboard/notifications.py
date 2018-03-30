@@ -252,6 +252,7 @@ def build_github_notification(bounty, event_name, profile_pairs=None):
               "* Questions? Get help on the <a href='https://gitcoin.co/slack'>Gitcoin Slack</a>\n * " \
               f"${amount_open_work} more Funded OSS Work Available at: https://gitcoin.co/explorer\n"
     elif event_name == 'work_started':
+        
         sub_msg = "\n\n __Please work together__ and coordinate delivery of the issue scope. Gitcoin " \
                   "doesn't know enough about everyones skillsets / free time to say who should work on " \
                   "what, but we trust that the community is smart and well-intentioned enough to work " \
@@ -260,7 +261,7 @@ def build_github_notification(bounty, event_name, profile_pairs=None):
                   f"above list? Please leave a comment to let the funder {bounty_owner} and the other parties " \
                   "involved what you're working, with respect to this issue and your plans to resolve " \
                   "it.  If you don't leave a comment, the funder may expire your submission at their discretion."
-
+        
         msg = f"__Work has been started on the {natural_value} {bounty.token_name} {usdt_value} funding " \
               f"by__: \n 1. {profiles} {sub_msg} \n\n * Learn more [on the gitcoin issue page]({absolute_url})\n " \
               "* Questions? Get help on the <a href='https://gitcoin.co/slack'>Gitcoin Slack</a>\n * " \
